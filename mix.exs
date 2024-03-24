@@ -3,7 +3,7 @@ defmodule StbImage.MixProject do
 
   @app :stb_image
   @version "0.6.9"
-  @github_url "https://github.com/elixir-nx/stb_image"
+  @github_url "https://github.com/cocoa-xu/stb_image"
 
   def project do
     [
