@@ -178,7 +178,6 @@ jobs:
         run: |
           mix deps.get
           mix elixir_make.checksum --all
-          cat checksums.exs
 
           targets=(
             aarch64-apple-darwin
@@ -200,5 +199,7 @@ jobs:
             sha256sum -c ${FILENAME}.sha256 && echo "  \"${FILENAME}\" => \"sha256:$(sha256sum ${FILENAME} | cut -d' ' -f1)\"," >> manual-checksum.exs
           done
           echo "}" >> manual-checksum.exs
+          
+          cat checksum.exs
           cat manual-checksum.exs
           diff checksum.exs manual-checksum.exs
