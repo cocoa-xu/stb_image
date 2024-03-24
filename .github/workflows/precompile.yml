@@ -178,3 +178,27 @@ jobs:
         run: |
           mix deps.get
           mix elixir_make.checksum --all
+          cat checksums.exs
+
+          targets=(
+            aarch64-apple-darwin
+            aarch64-linux-gnu
+            armv7l-linux-gnueabihf
+            i686-linux-gnu
+            powerpc64le-linux-gnu
+            riscv64-linux-gnu
+            s390x-linux-gnu
+            x86_64-apple-darwin
+            x86_64-linux-gnu
+            x86_64-windows-msvc
+          )
+          echo "%{" > manual-checksum.exs
+          for target in "${targets[@]}"; do
+            export FILENAME=stb_image-nif-2.16-${target}-0.6.9.tar.gz
+            curl -fSsL https://github.com/cocoa-xu/stb_image/releases/download/v0.6.9/${FILENAME}.sha256 -o ${FILENAME}.sha256
+            curl -fSsL https://github.com/cocoa-xu/stb_image/releases/download/v0.6.9/${FILENAME} -o ${FILENAME}
+            sha256sum -c ${FILENAME}.sha256 && echo "  \"${FILENAME}\" => \"sha256:$(sha256sum ${FILENAME} | cut -d' ' -f1)\"," >> manual-checksum.exs
+          done
+          echo "}" >> manual-checksum.exs
+          cat manual-checksum.exs
+          diff checksum.exs manual-checksum.exs
