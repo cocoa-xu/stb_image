@@ -38,7 +38,8 @@ defmodule StbImage.MixProject do
     [
       # compilation
       {:cc_precompiler, "~> 0.1.0"},
-      {:elixir_make, "~> 0.8.2"},
+      {:elixir_make, "~> 0.8.2",
+       github: "cocoa-xu/elixir_make", branch: "cx/generate-checksum-file", override: true},
       # optional
       {:nx, "~> 0.4", optional: true},
       {:kino, "~> 0.7", optional: true},
