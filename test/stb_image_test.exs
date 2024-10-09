@@ -281,15 +281,15 @@ defmodule StbImageTest do
   end
 
   describe "GIF" do
-    test "only restores background when dispose is 2 or 3" do
+    test "only restores background when dispose is 3" do
       file = Path.join(__DIR__, "stb-issue-1688-horse.gif")
       binary = File.read!(file)
 
       {:ok, frames, _} = StbImage.read_gif_binary(binary)
       assert 34 == Enum.count(frames)
 
-      decoded = Enum.at(frames, 5)
-      # StbImage.write_file!(decoded, Path.join(__DIR__, "stb-issue-1688-horse-5.png"))
+      decoded = Enum.at(frames, 31)
+      # StbImage.write_file!(decoded, Path.join(__DIR__, "stb-issue-1688-horse-31.png"))
       decoded = StbImage.to_binary(decoded, :png)
 
       {:ok, expected_img} = StbImage.read_file(Path.join(__DIR__, "stb-issue-1688-expected.png"))

@@ -6826,6 +6826,9 @@ static stbi_uc *stbi__gif_load_next(stbi__context *s, stbi__gif *g, int *comp, i
                memcpy( &g->out[pi * 4], &two_back[pi * 4], 4 );
             }
          }
+
+         // background is what out is after the undoing of the previou frame;
+         memcpy( g->background, g->out, 4 * g->w * g->h );
       } else if (dispose == 2) {
          // restore what was changed last frame to background before that frame;
          for (pi = 0; pi < pcount; ++pi) {
@@ -6838,11 +6841,6 @@ static stbi_uc *stbi__gif_load_next(stbi__context *s, stbi__gif *g, int *comp, i
          // leave the pixels as is, and they will become the new background
          // 1: do not dispose
          // 0:  not specified.
-      }
-
-      if (dispose == 2 || dispose == 3) {
-         // background is what out is after the undoing of the previou frame;
-         memcpy( g->background, g->out, 4 * g->w * g->h );
       }
    }
 
