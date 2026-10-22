@@ -424,20 +424,31 @@ static ERL_NIF_TERM resize(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]){
     if(!enif_get_int(env, argv[6], &bytes_per_channel)) {
         return error(env, "invalid bytes per channel");
     }
+    if (bytes_per_channel != 1 && bytes_per_channel != 4) {
+        return error(env, "invalid type");
+    }
+
+    size_t input_size, output_size;
+    if (!image_byte_size(input_w, input_h, num_channels, bytes_per_channel, &input_size) ||
+        !image_byte_size(output_w, output_h, num_channels, bytes_per_channel, &output_size)) {
+        return error(env, "invalid image dimensions");
+    }
+    if (input_pixels.size != input_size) {
+        return error(env, "invalid binary data");
+    }
 
     void * status;
     ErlNifBinary result;
 
-    if (enif_alloc_binary(output_w * output_h * num_channels * bytes_per_channel, &result)) {
+    if (enif_alloc_binary(output_size, &result)) {
         if (bytes_per_channel == 1) {
             status = stbir_resize_uint8_linear(input_pixels.data, input_w, input_h, stride_in_bytes, result.data, output_w, output_h, stride_in_bytes, (stbir_pixel_layout)num_channels);
-        } else if (bytes_per_channel == 4) {
-            status = stbir_resize_float_linear((float *)input_pixels.data, input_w, input_h, stride_in_bytes, (float *)result.data, output_w, output_h, stride_in_bytes, (stbir_pixel_layout)num_channels);
         } else {
-            return error(env, "invalid type");
+            status = stbir_resize_float_linear((float *)input_pixels.data, input_w, input_h, stride_in_bytes, (float *)result.data, output_w, output_h, stride_in_bytes, (stbir_pixel_layout)num_channels);
         }
 
         if (status == NULL) {
+            enif_release_binary(&result);
             return error(env, "failed to resize");
         }
 
