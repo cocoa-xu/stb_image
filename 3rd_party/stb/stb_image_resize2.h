@@ -3575,12 +3575,13 @@ static void stbir__cleanup_gathered_coefficients( stbir_edge edge, stbir__filter
 
 static int stbir__pack_coefficients( int num_contributors, stbir__contributors* contributors, float * coefficents, int coefficient_width, int widest, int row0, int row1 ) 
 {
-  #define STBIR_MOVE_1( dest, src ) { STBIR_NO_UNROLL(dest); ((stbir_uint32*)(dest))[0] = ((stbir_uint32*)(src))[0]; }
-  #define STBIR_MOVE_2( dest, src ) { STBIR_NO_UNROLL(dest); ((stbir_uint64*)(dest))[0] = ((stbir_uint64*)(src))[0]; }
+  // Copy through a temporary because float buffers need not have 64-bit alignment.
+  #define STBIR_MOVE_1( dest, src ) { stbir_uint32 t; STBIR_NO_UNROLL(dest); STBIR_MEMCPY(&t, src, sizeof(t)); STBIR_MEMCPY(dest, &t, sizeof(t)); }
+  #define STBIR_MOVE_2( dest, src ) { stbir_uint64 t; STBIR_NO_UNROLL(dest); STBIR_MEMCPY(&t, src, sizeof(t)); STBIR_MEMCPY(dest, &t, sizeof(t)); }
   #ifdef STBIR_SIMD
   #define STBIR_MOVE_4( dest, src ) { stbir__simdf t; STBIR_NO_UNROLL(dest); stbir__simdf_load( t, src ); stbir__simdf_store( dest, t ); }
   #else
-  #define STBIR_MOVE_4( dest, src ) { STBIR_NO_UNROLL(dest); ((stbir_uint64*)(dest))[0] = ((stbir_uint64*)(src))[0]; ((stbir_uint64*)(dest))[1] = ((stbir_uint64*)(src))[1]; }
+  #define STBIR_MOVE_4( dest, src ) { stbir_uint64 t[2]; STBIR_NO_UNROLL(dest); STBIR_MEMCPY(t, src, sizeof(t)); STBIR_MEMCPY(dest, t, sizeof(t)); }
   #endif
 
   int row_end = row1 + 1;
@@ -8211,7 +8212,10 @@ static void STBIR__CODER_NAME( stbir__encode_uint8_linear_scaled )( void * outpu
     stbir__simdf_madd( e0, STBIR__CONSTF(STBIR_simd_point5), STBIR__CONSTF(STBIR_max_uint8_as_float), e0 );
     stbir__encode_simdf4_unflip( e0 );
     stbir__simdf_pack_to_8bytes( i0, e0, e0 );  // only use first 4
-    *(int*)(output-4) = stbir__simdi_to_int( i0 );
+    {
+      int packed = stbir__simdi_to_int( i0 );
+      STBIR_MEMCPY(output-4, &packed, sizeof(packed));
+    }
     output += 4;
     encode += 4;
   }
@@ -8415,7 +8419,10 @@ static void STBIR__CODER_NAME( stbir__encode_uint8_linear )( void * outputp, int
     stbir__simdf_add( e0, STBIR__CONSTF(STBIR_simd_point5), e0 );
     stbir__encode_simdf4_unflip( e0 );
     stbir__simdf_pack_to_8bytes( i0, e0, e0 );  // only use first 4
-    *(int*)(output-4) = stbir__simdi_to_int( i0 );
+    {
+      int packed = stbir__simdi_to_int( i0 );
+      STBIR_MEMCPY(output-4, &packed, sizeof(packed));
+    }
     output += 4;
     encode += 4;
   }
