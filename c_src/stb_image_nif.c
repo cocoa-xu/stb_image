@@ -218,6 +218,15 @@ static ERL_NIF_TERM write_file(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv
         return error(env, "invalid number of channels");
     }
 
+    size_t expected_size;
+    int bytes_per_channel = strcmp(format, "hdr") == 0 ? 4 : 1;
+    if (!image_byte_size(w, h, comp, bytes_per_channel, &expected_size)) {
+        return error(env, "invalid image dimensions");
+    }
+    if (result.size != expected_size) {
+        return error(env, "invalid binary data");
+    }
+
     c_path = enif_alloc(path.size + 1);
     memcpy(c_path, path.data, path.size);
     c_path[path.size] = '\0';
@@ -277,6 +286,11 @@ static void write_chunk(void *context_, void *data, int size) {
     if (context->out_of_memory) {
         return;
     }
+    if (size < 0 || (size_t)size > SIZE_MAX - context->size) {
+        context->out_of_memory = true;
+        return;
+    }
+    if (size == 0) return;
 
     WriteChunk *chunk = enif_alloc(sizeof(WriteChunk));
     void *chunk_data = enif_alloc(size);
@@ -348,6 +362,15 @@ static ERL_NIF_TERM to_binary(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     }
     if (!enif_get_int(env, argv[4], &comp)) {
         return error(env, "invalid number of channels");
+    }
+
+    size_t expected_size;
+    int bytes_per_channel = strcmp(format, "hdr") == 0 ? 4 : 1;
+    if (!image_byte_size(w, h, comp, bytes_per_channel, &expected_size)) {
+        return error(env, "invalid image dimensions");
+    }
+    if (img.size != expected_size) {
+        return error(env, "invalid binary data");
     }
 
     // The write_chunk function is called multiple times with subsequent
