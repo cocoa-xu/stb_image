@@ -130,6 +130,9 @@ static ERL_NIF_TERM read_gif_binary(ErlNifEnv *env, int argc, const ERL_NIF_TERM
     ErlNifBinary binary;
 
     if (enif_inspect_binary(env, argv[0], &binary)) {
+        if (binary.size > INT_MAX) {
+            return error(env, "image binary is too large");
+        }
         int x, y, z, comp;
         int *delays = NULL;
         unsigned char *data = NULL;
@@ -139,12 +142,29 @@ static ERL_NIF_TERM read_gif_binary(ErlNifEnv *env, int argc, const ERL_NIF_TERM
             return error(env, "cannot decode the given GIF file");
         }
 
+        size_t frame_size;
+        if (!image_byte_size(x, y, 4, 1, &frame_size) || z <= 0 ||
+            (size_t)z > SIZE_MAX / sizeof(ERL_NIF_TERM) ||
+            (size_t)z > SIZE_MAX / sizeof(ErlNifBinary) ||
+            (size_t)z > SIZE_MAX / frame_size) {
+            STBI_FREE(data);
+            STBI_FREE(delays);
+            return error(env, "invalid image dimensions");
+        }
+
         ERL_NIF_TERM *delays_term = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM) * z);
         ERL_NIF_TERM *frames_term = (ERL_NIF_TERM *)enif_alloc(sizeof(ERL_NIF_TERM) * z);
         ErlNifBinary *frames_result = (ErlNifBinary *)enif_alloc(sizeof(ErlNifBinary) * z);
+        if (delays_term == NULL || frames_term == NULL || frames_result == NULL) {
+            STBI_FREE(data);
+            STBI_FREE(delays);
+            enif_free(delays_term);
+            enif_free(frames_term);
+            enif_free(frames_result);
+            return error(env, "out of memory");
+        }
         bool ok = true;
         unsigned char *start = data;
-        size_t frame_size = x * y * sizeof(unsigned char) * 4;
         for (int i = 0; i < z; ++i) {
             if (enif_alloc_binary(frame_size, &frames_result[i])) {
                 memcpy(frames_result[i].data, start, frames_result[i].size);
