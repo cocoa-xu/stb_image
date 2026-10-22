@@ -30,8 +30,12 @@
 
 static ERL_NIF_TERM pack_data(ErlNifEnv *env, unsigned char *data, int x, int y, int n, int bytes_per_channel) {
     if (data != NULL) {
+        size_t size;
+        if (!image_byte_size(x, y, n, bytes_per_channel, &size)) {
+            return error(env, "invalid image dimensions");
+        }
         ErlNifBinary result;
-        if (enif_alloc_binary(x * y * n * bytes_per_channel, &result)) {
+        if (enif_alloc_binary(size, &result)) {
             memcpy(result.data, data, result.size);
 
             return enif_make_tuple4(env,
@@ -64,13 +68,16 @@ static ERL_NIF_TERM read_file(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     if(!enif_get_int(env, argv[1], &desired_channels)) {
         return error(env, "invalid channels");
     }
+    if (desired_channels < 0 || desired_channels > 4) {
+        return error(env, "cannot decode image");
+    }
 
     c_path = enif_alloc(path.size + 1);
     if (c_path == NULL) return error(env, "out of memory");
     memcpy(c_path, path.data, path.size);
     c_path[path.size] = '\0';
 
-    int x, y, n;
+    int x = 0, y = 0, n = 0;
     unsigned char *data;
 
     FILE *f = stbi__fopen(c_path, "rb");
@@ -88,9 +95,7 @@ static ERL_NIF_TERM read_file(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[
     }
 
     if (desired_channels > 0) {
-        if (n >= desired_channels) {
-            n = desired_channels;
-        }
+        n = desired_channels;
     }
     ret = pack_data(env, data, x, y, n, bytes_per_channel);
 
@@ -106,14 +111,20 @@ free_c_path:
 static ERL_NIF_TERM read_binary(ErlNifEnv *env, int argc, const ERL_NIF_TERM argv[]) {
     ErlNifBinary binary;
     int desired_channels, bytes_per_channel;
-    int x, y, n;
+    int x = 0, y = 0, n = 0;
     unsigned char *data;
 
     if (!enif_inspect_binary(env, argv[0], &binary)) {
         return error(env, "invalid binary");
     }
+    if (binary.size > INT_MAX) {
+        return error(env, "image binary is too large");
+    }
     if(!enif_get_int(env, argv[1], &desired_channels)) {
         return error(env, "invalid channels");
+    }
+    if (desired_channels < 0 || desired_channels > 4) {
+        return error(env, "cannot decode image");
     }
 
     if (stbi_is_hdr_from_memory(binary.data, (int)binary.size)) {
@@ -124,7 +135,9 @@ static ERL_NIF_TERM read_binary(ErlNifEnv *env, int argc, const ERL_NIF_TERM arg
         bytes_per_channel = 1;
     }
 
-    ERL_NIF_TERM ret = pack_data(env, data, x, y, n, bytes_per_channel);
+    // n describes the source, even when stb converts the returned pixel buffer.
+    int output_channels = desired_channels > 0 ? desired_channels : n;
+    ERL_NIF_TERM ret = pack_data(env, data, x, y, output_channels, bytes_per_channel);
     STBI_FREE((void *)data);
     return ret;
 }
